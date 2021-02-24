@@ -1,0 +1,66 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: In order to setup CloudTrail logging we need a properly configured bucket
+
+Parameters:
+  company:
+    Type: String
+    Description: acronym used for the company or organization
+  orgId:
+    Type: String
+    Description: Organization ID used for the bucket
+  orgAccountId:
+    Type: String
+    Description: AWS Account Number of the organization root account
+
+Resources:
+  logBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: "${company}-log-black-hole-${AWS::Region}-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: Purpose
+        Value: Log Black Hole
+      - Key: CreatedVia
+        Value: CloudFormation
+      - Key: Contact
+        Value: djfurman
+      - Key: Project
+        Value: AWS Platform
+
+  logBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: logBucket
+      PolicyDocument:
+        Statement:
+        - Sid: AwsCloudTrailAclCheck
+          Action: "s3:GetBucketAcl"
+          Effect: "Allow"
+          Principal:
+            Service: "cloudtrail.amazonaws.com"
+          Resource:
+            Fn::Sub: "${logBucket.Arn}"
+        - Sid: AwsOrgCloudTrail
+          Action: "s3:PutObject"
+          Condition:
+            StringEquals:
+              "s3:x-amz-acl": "bucket-owner-full-control"
+          Effect: "Allow"
+          Principal:
+            Service: "cloudtrail.amazonaws.com"
+          Resource:
+          - Fn::Sub: "${logBucket.Arn}/AWSLogs/${orgId}/*"
+          - Fn::Sub: "${logBucket.Arn}/AWSLogs/${AWS::AccountId}/*"
+          - Fn::Sub: "${logBucket.Arn}/AWSLogs/${orgAccountId}/*"
