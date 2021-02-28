@@ -1,0 +1,60 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: In order to setup a corporate website bucket we need a properly configured bucket
+
+Parameters:
+  company:
+    Type: String
+    Description: acronym used for the company or organization
+  domian:
+    Type: String
+    Description: domain addres used for the site
+
+Resources:
+  siteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: "${company}-site-${AWS::Region}-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+      - Key: Purpose
+        Value: Corporate Website
+      - Key: CreatedVia
+        Value: CloudFormation
+      - Key: Contact
+        Value: djfurman
+      - Key: Project
+        Value: AWS Platform
+      WebsiteConfiguration:
+        ErrorDocument: "error.html"
+        IndexDocument: "index.html"
+
+  siteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: siteBucket
+      PolicyDocument:
+        Statement:
+        - Sid: AllowGetRequestsFromCloudFront
+          Action:
+          - "s3:GetObject"
+          - "s3:GetObjectVersion"
+          Effect: "Allow"
+          Principal: "*"
+          Resource:
+            Fn::Sub: "${siteBucket.Arn}/*"
+          Condition:
+            StringLike:
+              "aws:Referer":
+              - Fn::Sub: "https://www.{domain}/*"
+              - Fn::Sub: "https://{domain}/*"
